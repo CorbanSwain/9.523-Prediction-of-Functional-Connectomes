@@ -118,13 +118,14 @@ def cortical_model_2():
                      for i in range(num_columns)]
 
     # theta_0 = pi * 0.4
-    C_alpha = 1 * nA
-    epsilon = 0.2
-    J_0_alpha_E = 0.75
-    J_2_alpha_E = 0.5
-    J_0_alpha_I = -2.5
-    J_2_alpha_I = -2
-    w_factor = 50 * mV
+    C_alpha_0 = 0.8 * nA
+    epsilon = 0.3
+    J_0_alpha_E = 2.5
+    J_2_alpha_E = 2.5
+    J_0_alpha_I = -1.5
+    J_2_alpha_I = -1
+    w_factor = 32 * mV
+    connection_p = 0.99
 
     # Parameters
     C = 281 * pF
@@ -135,9 +136,8 @@ def cortical_model_2():
     DeltaT = 2 * mV
     Vcut = VT + 5 * DeltaT
 
-    sigma = 3 * mV
-
-    delay = taum * 0.2
+    sigma = 1.5 * mV
+    delay = taum * 0.1
 
     # Pick an electrophysiological behaviour
     tauw, a, b, Vr = 144 * ms, 4 * nS, 0.0805 * nA, -70.6 * mV  # Regular spiking (as in the paper)
@@ -147,7 +147,9 @@ def cortical_model_2():
     spiking_neuron_eqns = '''
     dvm/dt = (gL * (EL - vm) + gL * DeltaT * exp((vm - VT)/DeltaT) + I - w) / C + (sigma * xi * taum ** -0.5) : volt
     dw/dt = (a * (vm - EL) - w) / tauw : amp
-    I = C_alpha * (1.0 - epsilon + epsilon * cos(2.0 * (theta - theta_0))): amp
+    I = C_t * C_alpha * (1.0 - epsilon + epsilon * cos(2.0 * (theta - theta_0))) : amp
+    C_t = (1 - sign(t - (1000 * ms))) / 2 : 1
+    C_alpha : amp
     theta : 1
     theta_0 = clip((t / (1 * second)) * pi - pi, -pi / 2, pi / 2) : 1
     J_0 : 1
@@ -163,7 +165,9 @@ def cortical_model_2():
     N_I = NeuronGroup(**spiking_neuron_kwargs, name='Inhibitory')
 
     N_E.theta = N_I.theta = column_thetas
-    N_E.vm = N_I.vm = EL
+    N_E.vm = N_I.vm = Vr
+    N_E.C_alpha = C_alpha_0
+    N_I.C_alpha = C_alpha_0 / 10
     N_E.J_0 = J_0_alpha_E
     N_E.J_2 = J_2_alpha_E
     N_I.J_0 = J_0_alpha_I
@@ -182,19 +186,20 @@ def cortical_model_2():
     S_EI = Synapses(N_I, N_E, **inter_synapse_kwargs)
     S_IE = Synapses(N_E, N_I, **inter_synapse_kwargs)
     synps = (S_EE, S_II, S_EI, S_IE)
-    [s.connect(p=0.5, condition='i!=j') for s in (S_EE, S_II)]
+    [s.connect(p=0.5) for s in (S_EE, S_II)]
     [s.connect(p=0.5,) for s in (S_EI, S_IE)]
     for s in synps:
-        s.w_syn = '(J_0_pre + J_2_pre * cos(2.0 * (theta_post - theta_pre))) / num_columns'
-    synp_names = ('Exct <- Exct', 'Inhb <- Inhb', 'Exct <- Inhb', 'Inhb <- Exct')
+        s.w_syn = '(J_0_pre + J_2_pre * cos(2.0 * (theta_post - theta_pre))) / (num_columns * connection_p)'
+    synp_names = ('Exct <- Exct', 'Inhb <- Inhb',
+                  'Exct <- Inhb', 'Inhb <- Exct')
     for synp, nme in zip(synps, synp_names):
         visualise_connectivity(synp)
         title(nme)
 
     M_E = SpikeMonitor(N_E)
     M_I = SpikeMonitor(N_I)
-    state_E = StateMonitor(N_E, ('vm', ), record=True)
-    state_I = StateMonitor(N_I, ('vm', ), record=True)
+    state_E = StateMonitor(N_E, ('vm', 'theta'), record=True)
+    state_I = StateMonitor(N_I, ('vm', 'theta'), record=True)
 
     run(duration)
 
@@ -211,12 +216,16 @@ def cortical_model_2():
     for ax, m, nme in zip(axs, state_monitors, ng_names):
         x = np.array([m.t for _ in m.vm]).T / (1 * ms)
         max_delta = np.max(m.vm[0].flatten()) - np.min(m.vm[0].flatten())
-        y = (m.vm + (max_delta * 0.9) * np.reshape(np.arange(0, len(m.vm)), (-1, 1))).T
+        y = (m.vm + (max_delta * 0.9) * np.reshape(np.arange(0, len(m.vm)),
+                                                   (-1, 1))).T
         ax.plot(x, y, 'k-')
         ax.set_xlim(auto=True)
         ax.set_ylim(auto=True)
         ax.set_title(nme)
 
+
 if __name__ == "__main__":
     cortical_model_2()
+    multipage()
     plt.show()
+
