@@ -9,10 +9,13 @@
       <file name="/Dummy.txt" timestamp="1542753238892">
         <mark key="[" line="0" column="0" />
       </file>
-      <file name="/Python Console" timestamp="1542765571541">
+      <file name="$USER_HOME$/Library/Python/3.6/lib/python/site-packages/matplotlib/pyplot.py" timestamp="1542766053371" />
+      <file name="/Python Console" timestamp="1542767598629">
         <mark key="[" line="0" column="0" />
       </file>
-      <file name="$USER_HOME$/PycharmProjects/9.523-Prediction-of-Functional-Connectomes/project_utils.py" timestamp="1542765618697" />
+      <file name="$USER_HOME$/PycharmProjects/9.523-Prediction-of-Functional-Connectomes/project_utils.py" timestamp="1542767365560">
+        <mark key="[" line="30" column="67" />
+      </file>
       <file name="/fragment.py" timestamp="1542765250983">
         <mark key="[" line="0" column="0" />
       </file>
@@ -24,8 +27,8 @@
       <file name="/Test011" timestamp="1542661078139">
         <mark key="[" line="0" column="0" />
       </file>
-      <file name="$USER_HOME$/PycharmProjects/9.523-Prediction-of-Functional-Connectomes/cortical_column_model.py" timestamp="1542765829690">
-        <mark key="'" line="231" column="4" />
+      <file name="$USER_HOME$/PycharmProjects/9.523-Prediction-of-Functional-Connectomes/cortical_column_model.py" timestamp="1542767036557">
+        <mark key="'" line="224" column="24" />
         <mark key="[" line="116" column="19" />
         <mark key="]" line="116" column="20" />
         <mark key="." line="116" column="20" />
@@ -33,6 +36,7 @@
     </filemarks>
     <jumps>
       <jump line="229" column="4" filename="$USER_HOME$/PycharmProjects/9.523-Prediction-of-Functional-Connectomes/cortical_column_model.py" />
+      <jump line="224" column="24" filename="$USER_HOME$/PycharmProjects/9.523-Prediction-of-Functional-Connectomes/cortical_column_model.py" />
     </jumps>
     <registers>
       <register name="1" type="2">
