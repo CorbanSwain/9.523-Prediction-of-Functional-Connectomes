@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from brian2 import *
 from brian2tools import *
 from project_utils import *
+from scipy.stats.stats import pearsonr
 
 def cortical_model():
     start_scope()
@@ -240,13 +241,16 @@ if __name__ == "__main__":
     for i in range(5):
         for j in range(5):
             axs[i, j].scatter(me_v[i], mi_v[j], c='k', marker='o')
+            corr, p_value = pearsonr(me_v[i], mi_v[j])
+            axs[i, j].set_title("r=" + '%.2f' % corr)
 
     fig, axs = plt.subplots(5, 5, figsize=(10, 10))
     plt.tight_layout()
     for i in range(5):
         for j in range(5):
             axs[i, j].scatter(me_v[i], me_v[j], c='k', marker='o')
-
+            corr, p_value = pearsonr(me_v[i], mi_v[j])
+            axs[i, j].set_title("r=" + '%.2f' % corr)
 
 
     multipage()
