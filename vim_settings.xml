@@ -6,15 +6,16 @@
       <file name="/start_script.py" timestamp="1542660188562">
         <mark key="[" line="0" column="0" />
       </file>
-      <file name="$USER_HOME$/PycharmProjects/Test02/Test02.py" timestamp="1542742050482" />
       <file name="/Dummy.txt" timestamp="1542753238892">
         <mark key="[" line="0" column="0" />
       </file>
-      <file name="$USER_HOME$/Library/Python/3.6/lib/python/site-packages/matplotlib/pyplot.py" timestamp="1542761861582" />
-      <file name="/Python Console" timestamp="1542763539763">
+      <file name="/Python Console" timestamp="1542765571541">
         <mark key="[" line="0" column="0" />
       </file>
-      <file name="$USER_HOME$/PycharmProjects/9.523-Prediction-of-Functional-Connectomes/project_utils.py" timestamp="1542761752891" />
+      <file name="$USER_HOME$/PycharmProjects/9.523-Prediction-of-Functional-Connectomes/project_utils.py" timestamp="1542765618697" />
+      <file name="/fragment.py" timestamp="1542765250983">
+        <mark key="[" line="0" column="0" />
+      </file>
       <file name="$USER_HOME$/PycharmProjects/Test02/Test021.py" timestamp="1542675726949">
         <mark key="[" line="3" column="0" />
         <mark key="]" line="4" column="0" />
@@ -23,11 +24,11 @@
       <file name="/Test011" timestamp="1542661078139">
         <mark key="[" line="0" column="0" />
       </file>
-      <file name="$USER_HOME$/PycharmProjects/9.523-Prediction-of-Functional-Connectomes/cortical_column_model.py" timestamp="1542763537374">
+      <file name="$USER_HOME$/PycharmProjects/9.523-Prediction-of-Functional-Connectomes/cortical_column_model.py" timestamp="1542765829690">
         <mark key="'" line="231" column="4" />
-        <mark key="[" line="226" column="58" />
-        <mark key="]" line="226" column="59" />
-        <mark key="." line="226" column="58" />
+        <mark key="[" line="116" column="19" />
+        <mark key="]" line="116" column="20" />
+        <mark key="." line="116" column="20" />
       </file>
     </filemarks>
     <jumps>
@@ -38,10 +39,10 @@
         <text encoding="base64">Cg==</text>
       </register>
       <register name="&quot;" type="4">
-        <text>corr</text>
+        <text>0</text>
       </register>
       <register name="-" type="4">
-        <text>corr</text>
+        <text>0</text>
       </register>
       <register name="/" type="4">
         <text encoding="base64">XDxtdWx0aXBhZ2VcPg==</text>
