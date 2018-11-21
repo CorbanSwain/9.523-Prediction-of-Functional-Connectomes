@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from brian2 import *
 from brian2tools import *
+from scipy.stats.stats import pearsonr
 import datetime
 import time
 import os
@@ -14,6 +15,7 @@ import os
 def visualise_connectivity(S):
     Ns = len(S.source)
     Nt = len(S.target)
+    corr, p_value = pearsonr(S.i, S.j)
     figure(figsize=(10, 4))
     subplot(131)
     plot(zeros(Ns), arange(Ns), 'ok', ms=3)
@@ -31,6 +33,7 @@ def visualise_connectivity(S):
     ylim(-1, Nt)
     xlabel('Source neuron index')
     ylabel('Target neuron index')
+    title(" corr=" + '%.2f' % corr + ", p-value=" + '%.2f' % p_value)
     subplot(133)
     plt.hist(S.w_syn, 10, color='k', edgecolor='w')
 
