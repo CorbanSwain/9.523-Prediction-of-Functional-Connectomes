@@ -113,7 +113,7 @@ def cortical_model_2():
     start_scope()
 
     duration = 2000 * ms
-    num_columns = 100
+    num_columns = 5
     column_thetas = [np.pi * ((- 1 / 2) + (i / (num_columns - 1)))
                      for i in range(num_columns)]
 
@@ -224,9 +224,32 @@ def cortical_model_2():
         ax.set_ylim(auto=True)
         ax.set_title(nme)
 
+    return [(m.vm, m.t) for m in state_monitors]
+
 
 if __name__ == "__main__":
-    cortical_model_2()
+    output = cortical_model_2()
+
+    [print(x) for m in output for x in m]
+
+    me_v, me_t = output[0]
+    mi_v, mi_t = output[1]
+
+    fig, axs = plt.subplots(5, 5, figsize=(10, 10))
+    plt.tight_layout()
+    for i in range(5):
+        for j in range(5):
+            axs[i, j].scatter(me_v[i], mi_v[j], c='k', marker='o')
+
+    fig, axs = plt.subplots(5, 5, figsize=(10, 10))
+    plt.tight_layout()
+    for i in range(5):
+        for j in range(5):
+            axs[i, j].scatter(me_v[i], me_v[j], c='k', marker='o')
+
+
+
     multipage()
     plt.show()
+
 
