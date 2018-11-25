@@ -18,29 +18,30 @@
       <file name="/Python Console" timestamp="1542767598629">
         <mark key="[" line="0" column="0" />
       </file>
-      <file name="$USER_HOME$/PycharmProjects/9.523-Prediction-of-Functional-Connectomes/project_utils.py" timestamp="1543108924728">
-        <mark key="[" line="51" column="0" />
-        <mark key="]" line="51" column="0" />
-        <mark key="." line="51" column="0" />
+      <file name="$USER_HOME$/PycharmProjects/9.523-Prediction-of-Functional-Connectomes/project_utils.py" timestamp="1543109862616">
+        <mark key="[" line="54" column="57" />
+        <mark key="]" line="54" column="57" />
+        <mark key="." line="54" column="57" />
       </file>
       <file name="/fragment.py" timestamp="1542765250983">
         <mark key="[" line="0" column="0" />
       </file>
+      <file name="/Library/Frameworks/Python.framework/Versions/3.6/lib/python3.6/site-packages/statsmodels/tsa/stattools.py" timestamp="1543109037837" />
+      <file name="/Test011" timestamp="1542661078139">
+        <mark key="[" line="0" column="0" />
+      </file>
+      <file name="$USER_HOME$/PycharmProjects/9.523-Prediction-of-Functional-Connectomes/cortical_column_model.py" timestamp="1543109794599">
+        <mark key="'" line="243" column="53" />
+        <mark key="[" line="263" column="4" />
+        <mark key="]" line="263" column="4" />
+        <mark key="." line="263" column="4" />
+      </file>
+      <file name="/cortical_column_model.py" timestamp="1542771418682" />
       <file name="$USER_HOME$/PycharmProjects/Test02/Test021.py" timestamp="1542675726949">
         <mark key="[" line="3" column="0" />
         <mark key="]" line="4" column="0" />
         <mark key="." line="2" column="24" />
       </file>
-      <file name="/Test011" timestamp="1542661078139">
-        <mark key="[" line="0" column="0" />
-      </file>
-      <file name="$USER_HOME$/PycharmProjects/9.523-Prediction-of-Functional-Connectomes/cortical_column_model.py" timestamp="1543108725550">
-        <mark key="'" line="243" column="53" />
-        <mark key="[" line="248" column="6" />
-        <mark key="]" line="248" column="28" />
-        <mark key="." line="248" column="6" />
-      </file>
-      <file name="/cortical_column_model.py" timestamp="1542771418682" />
     </filemarks>
     <jumps>
       <jump line="243" column="53" filename="$USER_HOME$/PycharmProjects/9.523-Prediction-of-Functional-Connectomes/cortical_column_model.py" />
@@ -48,22 +49,25 @@
     </jumps>
     <registers>
       <register name="1" type="2">
-        <text encoding="base64">ZGVmIChmaWxlbmFtZT1Ob25lLCBmaWdzPU5vbmUsIGRwaT0yMDApOgo=</text>
+        <text encoding="base64">Cg==</text>
       </register>
-      <register name="&quot;" type="2">
-        <text encoding="base64">ZGVmIChmaWxlbmFtZT1Ob25lLCBmaWdzPU5vbmUsIGRwaT0yMDApOgo=</text>
+      <register name="&quot;" type="4">
+        <text>e</text>
       </register>
       <register name="2" type="2">
         <text encoding="base64">ZGVmIChmaWxlbmFtZT1Ob25lLCBmaWdzPU5vbmUsIGRwaT0yMDApOgo=</text>
       </register>
       <register name="3" type="2">
-        <text encoding="base64">ICAgICAgICAgICAgZmlnLnNhdmVmaWcocHAsIGZvcm1hdD0ncGRmJywgZHBpPWRwaSkK</text>
+        <text encoding="base64">ZGVmIChmaWxlbmFtZT1Ob25lLCBmaWdzPU5vbmUsIGRwaT0yMDApOgo=</text>
       </register>
       <register name="4" type="2">
+        <text encoding="base64">ICAgICAgICAgICAgZmlnLnNhdmVmaWcocHAsIGZvcm1hdD0ncGRmJywgZHBpPWRwaSkK</text>
+      </register>
+      <register name="5" type="2">
         <text encoding="base64">Cg==</text>
       </register>
       <register name="-" type="4">
-        <text>multipag</text>
+        <text>e</text>
       </register>
       <register name="/" type="4">
         <text encoding="base64">XDxtdWx0aXBhZ2VcPg==</text>
