@@ -4,6 +4,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
+from statsmodels.tsa.stattools import grangercausalitytests as granger
 from brian2 import *
 from brian2tools import *
 from scipy.stats.stats import pearsonr
@@ -47,3 +48,8 @@ def multipage(filename=None, figs=None, dpi=200):
             figs = [plt.figure(n) for n in plt.get_fignums()]
         for fig in figs:
             fig.savefig(pp, format='pdf', dpi=dpi)
+
+
+# Pick the lag that is more significant (higher p-value)
+def grangertests(v1, v2, maxlag=3):
+    return granger([*zip(*[v1, v2]/mV)], maxlag, verbose=True)

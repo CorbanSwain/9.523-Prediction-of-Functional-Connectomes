@@ -13,7 +13,7 @@ def cortical_model():
 
     duration = 1000 * ms
     base_firing_rate = 200 * Hz
-    num_columns = 50
+    num_columns = 10
     column_thetas = [np.pi * ((- 1 / 2) + (i / num_columns - 1))
                      for i in range(num_columns)]
     delay = 2 * ms
@@ -231,7 +231,7 @@ def cortical_model_2():
 if __name__ == "__main__":
     output = cortical_model_2()
 
-    [print(x) for m in output for x in m]
+    # [print(x) for m in output for x in m]
 
     me_v, me_t = output[0]
     mi_v, mi_t = output[1]
@@ -243,6 +243,7 @@ if __name__ == "__main__":
             axs[i, j].scatter(me_v[i], mi_v[j], c='k', marker='o')
             corr, p_value = pearsonr(me_v[i], mi_v[j])
             axs[i, j].set_title("r=" + '%.2f' % corr)
+            grangertests(me_v[i], mi_v[j])
 
     fig, axs = plt.subplots(5, 5, figsize=(10, 10))
     plt.tight_layout()
@@ -251,6 +252,7 @@ if __name__ == "__main__":
             axs[i, j].scatter(me_v[i], me_v[j], c='k', marker='o')
             corr, p_value = pearsonr(me_v[i], mi_v[j])
             axs[i, j].set_title("r=" + '%.2f' % corr)
+            grangertests(me_v[i], mi_v[j])
 
 
     multipage()
