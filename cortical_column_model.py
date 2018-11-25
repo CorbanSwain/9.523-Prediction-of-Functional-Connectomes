@@ -13,7 +13,7 @@ def cortical_model():
 
     duration = 1000 * ms
     base_firing_rate = 200 * Hz
-    num_columns = 10
+    num_columns = 50
     column_thetas = [np.pi * ((- 1 / 2) + (i / num_columns - 1))
                      for i in range(num_columns)]
     delay = 2 * ms
