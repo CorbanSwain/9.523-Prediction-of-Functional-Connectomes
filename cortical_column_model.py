@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from brian2 import *
 from brian2tools import *
 from project_utils import *
+from matplotlib.markers import MarkerStyle
 
 def cortical_model():
     start_scope()
@@ -109,23 +110,26 @@ def cortical_model():
         ax.set_title(nme)
 
 
+NC = 50
+
 def cortical_model_2():
     start_scope()
 
     duration = 2000 * ms
-    num_columns = 5
+    num_columns = NC
     column_thetas = [np.pi * ((- 1 / 2) + (i / (num_columns - 1)))
                      for i in range(num_columns)]
 
-    # theta_0 = pi * 0.4
-    C_alpha_0 = 0.8 * nA
-    epsilon = 0.5
+    theta_constant = 0
+    C_alpha_0 = 1 * nA
+    epsilon = 0.4
     J_0_alpha_E = 1.5
-    J_2_alpha_E = 0.9
+    J_2_alpha_E = 1.2
     J_0_alpha_I = -1.5
     J_2_alpha_I = -1
-    w_factor = 25 * mV
+    w_factor = 30 * mV
     connection_p = 0.5
+    stim_time = 2000 * ms
 
     # Parameters
     C = 281 * pF
@@ -135,8 +139,9 @@ def cortical_model_2():
     VT = -50.4 * mV
     DeltaT = 2 * mV
     Vcut = VT + 5 * DeltaT
+    Vpeak = 20 * mV
 
-    sigma = 1.5 * mV
+    sigma = 2 * mV
     delay = taum * 0.1
 
     # Pick an electrophysiological behaviour
@@ -148,10 +153,11 @@ def cortical_model_2():
     dvm/dt = (gL * (EL - vm) + gL * DeltaT * exp((vm - VT)/DeltaT) + I - w) / C + (sigma * xi * taum ** -0.5) : volt
     dw/dt = (a * (vm - EL) - w) / tauw : amp
     I = C_t * C_alpha * (1.0 - epsilon + epsilon * cos(2.0 * (theta - theta_0))) : amp
-    C_t = (1 - sign(t - (2000 * ms))) / 2 : 1
+    C_t = (1 - sign(t - stim_time)) / 2 : 1
     C_alpha : amp
     theta : 1
-    theta_0 = clip((t / (1 * second)) * pi - pi, -pi / 2, pi / 2) : 1
+    theta_0 = theta_ramp: 1
+    theta_ramp = clip((t / (1 * second)) * pi - pi, -pi / 2, pi / 2) : 1
     J_0 : 1
     J_2 : 1
     '''
@@ -166,41 +172,47 @@ def cortical_model_2():
     N_I = NeuronGroup(**spiking_neuron_kwargs, name='Inhibitory')
 
     N_E.theta = N_I.theta = column_thetas
-    N_E.vm = N_I.vm = Vr
-    N_E.C_alpha = C_alpha_0
-    N_I.C_alpha = C_alpha_0
+    N_E.vm = N_I.vm = EL
+    N_E.C_alpha = [C_alpha_0 if i % 2 else C_alpha_0
+                   for i in range(num_columns)]
+    N_I.C_alpha = [C_alpha_0 if i % 2 else C_alpha_0
+                   for i in range(num_columns)]
     N_E.J_0 = J_0_alpha_E
     N_E.J_2 = J_2_alpha_E
     N_I.J_0 = J_0_alpha_I
     N_I.J_2 = J_2_alpha_I
 
-    synapse_model = 'w_syn : 1'
-    inter_synapse_on_pre = '''
-    vm += w_syn * w_factor
-    '''
-    inter_synapse_kwargs = dict(
-        model=synapse_model,
-        on_pre=inter_synapse_on_pre,
-        delay=delay)
-    S_EE = Synapses(N_E, N_E, **inter_synapse_kwargs)
-    S_II = Synapses(N_I, N_I, **inter_synapse_kwargs)
-    S_EI = Synapses(N_I, N_E, **inter_synapse_kwargs)
-    S_IE = Synapses(N_E, N_I, **inter_synapse_kwargs)
-    synps = (S_EE, S_II, S_EI, S_IE)
-    [s.connect(p=connection_p) for s in (S_EE, S_II)]
-    [s.connect(p=connection_p) for s in (S_EI, S_IE)]
-    for s in synps:
-        s.w_syn = '(J_0_pre + J_2_pre * cos(2.0 * (theta_post - theta_pre))) / (num_columns * connection_p)'
-    synp_names = ('Exct <- Exct', 'Inhb <- Inhb',
-                  'Exct <- Inhb', 'Inhb <- Exct')
-    for synp, nme in zip(synps, synp_names):
-        visualise_connectivity(synp)
-        title(nme)
+    if not connection_p == 0:
+        synapse_model = 'w_syn : 1'
+        inter_synapse_on_pre = '''
+        vm += w_syn * w_factor
+        '''
+        inter_synapse_kwargs = dict(
+            model=synapse_model,
+            on_pre=inter_synapse_on_pre,
+            delay=delay)
+        S_EE = Synapses(N_E, N_E, **inter_synapse_kwargs)
+        S_II = Synapses(N_I, N_I, **inter_synapse_kwargs)
+        S_EI = Synapses(N_I, N_E, **inter_synapse_kwargs)
+        S_IE = Synapses(N_E, N_I, **inter_synapse_kwargs)
+        synps = (S_EE, S_II, S_EI, S_IE)
+        [s.connect(p=connection_p, condition='i!=j') for s in (S_EE, S_II)]
+        [s.connect(p=connection_p) for s in (S_EI, S_IE)]
+
+        for s in synps:
+            s.w_syn = '(J_0_pre + J_2_pre * cos(2.0 * (theta_post - theta_pre))) / (num_columns * connection_p)'
+        synp_names = ('Exct <- Exct', 'Inhb <- Inhb',
+                      'Exct <- Inhb', 'Inhb <- Exct')
+        for synp, nme in zip(synps, synp_names):
+            visualise_connectivity(synp)
+            title(nme)
+    else:
+        synps = None
 
     M_E = SpikeMonitor(N_E)
     M_I = SpikeMonitor(N_I)
-    state_E = StateMonitor(N_E, ('vm', 'theta'), record=True)
-    state_I = StateMonitor(N_I, ('vm', 'theta'), record=True)
+    state_E = StateMonitor(N_E, ('vm', 'theta', 'I'), record=True)
+    state_I = StateMonitor(N_I, ('vm', 'theta', 'I'), record=True)
 
     run(duration)
 
@@ -213,43 +225,57 @@ def cortical_model_2():
         brian_plot(m, axes=ax)
         ax.set_title(nme)
 
+    traces = []
+    for st_m, sp_m in zip(state_monitors, spike_monitors):
+        V = st_m.vm
+        for ky, vl in sp_m.all_values()['t'].items():
+            for t in vl:
+                V[ky, int(t / defaultclock.dt)] = Vpeak
+        traces.append(V)
+
     fig, axs = plt.subplots(1, 2, figsize=(15, 8))
-    for ax, m, nme in zip(axs, state_monitors, ng_names):
-        x = np.array([m.t for _ in m.vm]).T / (1 * ms)
-        max_delta = np.max(m.vm[0].flatten()) - np.min(m.vm[0].flatten())
-        y = (m.vm + (max_delta * 0.9) * np.reshape(np.arange(0, len(m.vm)),
-                                                   (-1, 1))).T
-        ax.plot(x, y, 'k-')
+    for ax, m, nme, tr in zip(axs, state_monitors, ng_names, traces):
+        x = np.array([m.t for _ in tr]).T / (1 * ms)
+        max_delta = np.max(tr.flatten()) - np.min(tr.flatten())
+        y = (tr + (max_delta * 1.1) * np.reshape(np.arange(0, len(tr)),
+                                                 (-1, 1))).T
+        ax.plot(x, y / mV, 'k-')
         ax.set_xlim(auto=True)
         ax.set_ylim(auto=True)
         ax.set_title(nme)
 
-    return [(m.vm, m.t) for m in state_monitors]
+    fig, axs = plt.subplots(1, 2, figsize=(15, 8))
+    for ax, m, nme in zip(axs, state_monitors, ng_names):
+        x = np.array([m.t for _ in m.I]).T / (1 * ms)
+        max_delta = np.max(m.I.flatten()) - np.min(m.I.flatten())
+        y = (m.I + (max_delta * 1.1) * np.reshape(np.arange(0, len(m.I)),
+                                                   (-1, 1))).T
+        ax.plot(x, y / nA, 'k-')
+        ax.set_xlim(auto=True)
+        ax.set_ylim(auto=True)
+        ax.set_title(nme)
+
+    return [(tr, m.t) for m, tr in zip(state_monitors, traces)], synps
 
 
 if __name__ == "__main__":
-    output = cortical_model_2()
-
-    [print(x) for m in output for x in m]
+    output, syns = cortical_model_2()
+    if syns:
+        s_ee, s_ii, s_ei, s_ie = syns
 
     me_v, me_t = output[0]
     mi_v, mi_t = output[1]
+     
+    # plot_correlations(NC, src=(me_v / mV), target=(me_v / mV),
+    #                   nme='E -> E', s=s_ee)
+    # plot_correlations(NC, src=(mi_v / mV), target=(mi_v / mV),
+    #                   nme='I -> I', s=s_ii)
+    # plot_correlations(NC, src=(mi_v / mV), target=(me_v / mV),
+    #                   nme='I -> E', s=s_ei)
+    # plot_correlations(NC, src=(me_v / mV), target=(mi_v / mV),
+    #                   nme='E -> I', s=s_ie)
 
-    fig, axs = plt.subplots(5, 5, figsize=(10, 10))
-    plt.tight_layout()
-    for i in range(5):
-        for j in range(5):
-            axs[i, j].scatter(me_v[i], mi_v[j], c='k', marker='o')
-
-    fig, axs = plt.subplots(5, 5, figsize=(10, 10))
-    plt.tight_layout()
-    for i in range(5):
-        for j in range(5):
-            axs[i, j].scatter(me_v[i], me_v[j], c='k', marker='o')
-
-
-
-    multipage()
+    multipage(fmt='png')
     plt.show()
 
 

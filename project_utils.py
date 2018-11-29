@@ -14,7 +14,7 @@ import os
 def visualise_connectivity(S):
     Ns = len(S.source)
     Nt = len(S.target)
-    figure(figsize=(10, 4))
+    figure(figsize=(14, 4))
     subplot(131)
     plot(zeros(Ns), arange(Ns), 'ok', ms=3)
     plot(ones(Nt), arange(Nt), 'ok', ms=3)
@@ -35,12 +35,61 @@ def visualise_connectivity(S):
     plt.hist(S.w_syn, 10, color='k', edgecolor='w')
 
 
-def multipage(filename=None, figs=None, dpi=200):
+def plot_correlations(nc, src, target, s, nme):
+    a, b = src, target
+    all_vals = np.concatenate((a.flatten(), b.flatten()))
+    lims = [np.min(all_vals), np.max(all_vals)]
+    lim_diff = lims[1] - lims[0]
+    lim_prct = 0.07
+    lim_delta = lim_prct * lim_diff
+    lims = [lims[0] - lim_delta, lims[1] + lim_delta]
+    fig, axs = plt.subplots(nc, nc, figsize=(10, 10))
+    plt.tight_layout(2.5, 0.02, 0.02)
+    fig.suptitle(nme)
+    plt.subplots_adjust(wspace=0.1, hspace=0.1)
+    for i, i_row in enumerate(reversed(range(nc))):
+        for j in range(nc):
+            ax = axs[i_row, j]
+            R = np.corrcoef(a[j].flatten(), b[i].flatten())[1, 0]
+            scatter_kwargs = dict(x=a[j], y=b[i], s=3, facecolors='none',
+                                  edgecolors=(0, 0, 0, 0.2), marker='o',
+                                  linewidths=0.5)
+            text_kwargs = dict(x=lims[0] + 5, y=lims[1] - 5, s=' %.2f' % R,
+                               color='k', verticalalignment='top',
+                               horizontalalignment='left')
+            if True in [i_val == j for i_val, j_val in zip(s.i, s.j)
+                        if j_val == i]:
+                ax.set_facecolor('k')
+                scatter_kwargs['edgecolors'] = (1, 1, 1, 0.2)
+                text_kwargs['color'] = 'w'
+            ax.scatter(**scatter_kwargs)
+            ax.text(**text_kwargs)
+            ax.set_xticklabels([])
+            ax.set_yticklabels([])
+            ax.set_xlim(*lims)
+            ax.set_ylim(*lims)
+            if i_row == (nc - 1) and j == 0:
+                ax.set_xlabel('Source Neuron')
+                ax.set_ylabel('Target Neuron')
+            else:
+                ax.get_xaxis().set_visible(False)
+                ax.get_yaxis().set_visible(False)
+
+
+def multipage(filename=None, figs=None, dpi=200, fmt='pdf'):
     if filename is None:
         filename = 'all_figures_%s' % time.strftime('%y%m%d-%H%M')
-    file_path = os.path.join('figures', filename + '.pdf')
-    with PdfPages(file_path) as pp:
-        if figs is None:
-            figs = [plt.figure(n) for n in plt.get_fignums()]
-        for fig in figs:
-            fig.savefig(pp, format='pdf', dpi=dpi)
+
+    if figs is None:
+        figs = [plt.figure(n) for n in plt.get_fignums()]
+
+    file_path = os.path.join('figures', filename)
+    if fmt == 'pdf':
+        with PdfPages(file_path) as pp:
+            file_path += '.pdf'
+            for fig in figs:
+                fig.savefig(pp, format='pdf', dpi=dpi)
+    else:
+
+        for i, fig in enumerate(figs):
+            fig.savefig('%s_%d.%s' % (file_path, i, fmt), format=fmt, dpi=dpi)
