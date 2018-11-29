@@ -4,8 +4,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
+from statsmodels.tsa.stattools import grangercausalitytests as granger
 from brian2 import *
 from brian2tools import *
+from scipy.stats.stats import pearsonr
 import datetime
 import time
 import os
@@ -14,6 +16,7 @@ import os
 def visualise_connectivity(S):
     Ns = len(S.source)
     Nt = len(S.target)
+    corr, p_value = pearsonr(S.i, S.j)
     figure(figsize=(14, 4))
     subplot(131)
     plot(zeros(Ns), arange(Ns), 'ok', ms=3)
@@ -31,6 +34,7 @@ def visualise_connectivity(S):
     ylim(-1, Nt)
     xlabel('Source neuron index')
     ylabel('Target neuron index')
+    title(" corr=" + '%.2f' % corr + ", p-value=" + '%.2f' % p_value)
     subplot(133)
     plt.hist(S.w_syn, 10, color='k', edgecolor='w')
 
@@ -93,3 +97,7 @@ def multipage(filename=None, figs=None, dpi=200, fmt='pdf'):
 
         for i, fig in enumerate(figs):
             fig.savefig('%s_%d.%s' % (file_path, i, fmt), format=fmt, dpi=dpi)
+
+# Pick the lag that is more significant (higher p-value)
+def grangertests(v1, v2, maxlag=3):
+    return granger([*zip(*[v1, v2]/mV)], maxlag, verbose=True)

@@ -7,6 +7,7 @@ from brian2 import *
 from brian2tools import *
 from project_utils import *
 from matplotlib.markers import MarkerStyle
+from scipy.stats.stats import pearsonr
 
 def cortical_model():
     start_scope()
@@ -68,7 +69,7 @@ def cortical_model():
 
     inter_synapse_on_pre = '''
     w = (1.0 / num_columns) * (J_0_pre + J_2_pre * cos(2.0 * (theta_post - theta_pre)))
-    m_post += w                      
+    m_post += w
     '''
     inter_synapse_kwargs = dict(
         model=synapse_model,
@@ -265,7 +266,7 @@ if __name__ == "__main__":
 
     me_v, me_t = output[0]
     mi_v, mi_t = output[1]
-     
+
     # plot_correlations(NC, src=(me_v / mV), target=(me_v / mV),
     #                   nme='E -> E', s=s_ee)
     # plot_correlations(NC, src=(mi_v / mV), target=(mi_v / mV),
@@ -275,7 +276,25 @@ if __name__ == "__main__":
     # plot_correlations(NC, src=(me_v / mV), target=(mi_v / mV),
     #                   nme='E -> I', s=s_ie)
 
-    multipage(fmt='png')
+
+    fig, axs = plt.subplots(5, 5, figsize=(10, 10))
+    plt.tight_layout()
+    for i in range(5):
+        for j in range(5):
+            axs[i, j].scatter(me_v[i], mi_v[j], c='k', marker='o')
+            corr, p_value = pearsonr(me_v[i], mi_v[j])
+            axs[i, j].set_title("r=" + '%.2f' % corr)
+            grangertests(me_v[i], mi_v[j])
+
+    fig, axs = plt.subplots(5, 5, figsize=(10, 10))
+    plt.tight_layout()
+    for i in range(5):
+        for j in range(5):
+            axs[i, j].scatter(me_v[i], me_v[j], c='k', marker='o')
+            corr, p_value = pearsonr(me_v[i], mi_v[j])
+            axs[i, j].set_title("r=" + '%.2f' % corr)
+            grangertests(me_v[i], mi_v[j])
+
+
+    multipage()
     plt.show()
-
-
