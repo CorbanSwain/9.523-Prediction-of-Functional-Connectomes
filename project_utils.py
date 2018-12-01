@@ -100,4 +100,6 @@ def multipage(filename=None, figs=None, dpi=200, fmt='pdf'):
 
 # Pick the lag that is more significant (higher p-value)
 def grangertests(v1, v2, maxlag=3):
-    return granger([*zip(*[v1, v2]/mV)], maxlag, verbose=True)
+    g = granger([*zip(*[v1, v2]/mV)], maxlag, verbose=True)
+    print(g)
+    return g

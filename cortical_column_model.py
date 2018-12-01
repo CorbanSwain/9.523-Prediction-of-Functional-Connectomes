@@ -111,7 +111,7 @@ def cortical_model():
         ax.set_title(nme)
 
 
-NC = 50
+NC = 5
 
 def cortical_model_2():
     start_scope()
@@ -256,7 +256,9 @@ def cortical_model_2():
         ax.set_ylim(auto=True)
         ax.set_title(nme)
 
-    return [(tr, m.t) for m, tr in zip(state_monitors, traces)], synps
+    out_timeseries = [tuple(np.array(x) for x in (tr, m.t))
+                      for m, tr in zip(state_monitors, traces)]
+    return out_timeseries, synps
 
 
 if __name__ == "__main__":
