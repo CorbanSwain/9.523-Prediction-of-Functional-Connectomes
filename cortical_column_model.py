@@ -6,9 +6,11 @@ import matplotlib.pyplot as plt
 from brian2 import *
 from brian2tools import *
 from project_utils import *
+import matplotlib
+import matplotlib.patches as patches
 from matplotlib.markers import MarkerStyle
 from scipy.stats.stats import pearsonr
-
+import matplotlib.collections as collections
 
 def run_cortical_model(duration=500 * ms,
                        num_columns=5,
@@ -18,8 +20,10 @@ def run_cortical_model(duration=500 * ms,
                        neuron_noise=3 * mV,
                        synapse_factor_E=1,
                        synapse_factor_I=1,
-                       theta_0_expr='theta_in'):
+                       theta_0_expr='theta_in',
+                       i_switch_expr='1'):
 
+    start_scope()
     # Neuron Parameters
     C = 281 * pF
     gL = 30 * nS
@@ -47,7 +51,7 @@ def run_cortical_model(duration=500 * ms,
     J_2_alpha_E = 1.2
     J_0_alpha_I = -1.5
     J_2_alpha_I = -1
-    max_synapse_magnitude = 80 * mV
+    max_synapse_magnitude = 85 * mV
     connection_p_max = connection_probability
 
     # Computed Parameters
@@ -59,7 +63,8 @@ def run_cortical_model(duration=500 * ms,
     spiking_neuron_eqns = '''
     dvm/dt = (gL * (EL - vm) + gL * DeltaT * exp((vm - VT)/DeltaT) + I - w) / C + (sigma * xi * taum ** -0.5) : volt
     dw/dt = (a * (vm - EL) - w) / tauw : amp
-    I = C_alpha * (1.0 - epsilon + epsilon * cos(2.0 * (theta - theta_0))) : amp
+    I = I_switch * C_alpha * (1.0 - epsilon + epsilon * cos(2.0 * (theta - theta_0))) : amp
+    I_switch = %s : 1
     C_alpha : amp
     theta : 1
     theta_0 = %s : 1
@@ -67,7 +72,7 @@ def run_cortical_model(duration=500 * ms,
     synapse_magnitude : volt
     J_0 : 1
     J_2 : 1
-    ''' % theta_0_expr
+    ''' % (i_switch_expr, theta_0_expr)
     neurons = NeuronGroup(N=num_neurons,
                           model=spiking_neuron_eqns,
                           threshold='vm > Vcut',
@@ -149,22 +154,89 @@ def run_cortical_model(duration=500 * ms,
     spike_monitor = SpikeMonitor(neurons)
     state_monitor = StateMonitor(neurons, ('vm', 'I', 'theta_0'), record=True)
     run(duration)
-    t_repeated = np.array([state_monitor.t for _ in state_monitor.vm]).T
+    t_repeated = np.array([state_monitor.t for _ in state_monitor.vm]) * second
     v_with_peaks = add_peaks(state_monitor.vm, spike_monitor, Vpeak)
     return (t_repeated, v_with_peaks, state_monitor.I, state_monitor.theta_0), synapses
 
 
 def figure_1():
     print('F1 - Beginning Unconnected Simulation')
-    theta_0_expr = 'int(t > (1000.0 * ms)) * (-pi * (1.0 / 2.0 + (t - 1000.0 * ms) / (2000.0 * ms)))'
-    (t, v, I, theta_0), _ = run_cortical_model(duration=1500*ms,
+    theta_0_expr = 'int(t > (1000.0 * ms)) * (pi * (-1.0 / 2.0 + (t - 1000.0 * ms) / (4000.0 * ms)))'
+    i_switch_expr = 'int(abs(t - (750.0 * ms)) > (250.0 * ms))'
+    (t, v, I, theta_0), _ = run_cortical_model(duration=5000*ms,
+                                               num_columns=5,
                                                connection_probability=0,
-                                               theta_0_expr=theta_0_expr)
-    fig, ax = plt.subplots(1, 1, figsize=(8, 8))
-    trace_plot = plot_traces(t, v, ax)
+                                               theta_0_expr=theta_0_expr,
+                                               i_switch_expr=i_switch_expr)
+    fig = plt.figure(figsize=(6.5, 4.5))
+    gs = GridSpec(5, 1, hspace=0.4)
+    ax1 = plt.subplot(gs[:-1, :])
+    trace_plot, (trace_delta, space_idx) = plot_traces(t, v, ax1)
+    trace_delta = trace_delta / mV
+    n_neurons = len(space_idx)
+    rect_excit = patches.Rectangle((5100, -80),
+                                   width=100,
+                                   height=(trace_delta * n_neurons / 2) + 0,
+                                   facecolor='k', edgecolor=None)
+
+    rect_inhib = patches.Rectangle((5100, -80 + trace_delta * space_idx[int(n_neurons / 2)]),
+                                   width=100,
+                                   height=(trace_delta * n_neurons / 2) + 0,
+                                   facecolor='k', edgecolor=None)
+    pc = collections.PatchCollection([rect_excit, rect_inhib])
+
+    ax1.add_patch(rect_excit)
+    ax1.add_patch(rect_inhib)
+
+    ax1.text(5260, -80 + (trace_delta * n_neurons / 2) / 2, '$E$',
+             verticalalignment='center', fontweight='bold')
+    ax1.text(5260,
+             -80 + (trace_delta * n_neurons / 2) / 2 + trace_delta * space_idx[int(n_neurons / 2)],
+             '$I$', verticalalignment='center', fontweight='bold')
+    ax1.set_xlim(left=-100, right=5300)
+    ax1.set_yticks([-70, 20])
+    ax1.set_yticklabels(['$-70$ mV', '$20$ mV'])
+    ax1.set_xticks([])
+    ax1.tick_params(axis='y', which='major', pad=2)
+    despine(ax1, right=True, bottom=True, top=True)
+    ax1.spines['left'].set_bounds(-70, 20)
+
+    ax2 = plt.subplot(gs[-1, :])
+    ax2.hlines(0, -500, 5000, color='k', linestyle='--', linewidth=0.5)
+    x = t[1, :] / ms
+    y = theta_0[1, :]
+    y[np.logical_and(x <= 1000, x > 500)] = np.nan
+    ax2.plot(x, y, 'r-', linewidth=3)
+    ax2.set_yticks([-pi/2, 0, pi/2])
+    ax2.set_yticklabels([r'$-\nicefrac{\pi}{2}$',
+                         r'$0$',
+                         r'$+\nicefrac{\pi}{2}$'])
+    ax2.set_xticks([0, 5000])
+    ax2.set_xticklabels(['$0$ s', '$5$ s'])
+    ax2.set_xlim(ax1.get_xlim())
+    ax2.tick_params(axis='y', which='major', pad=2)
+    ax2.set_ylabel(r'$\theta_0$')
+    despine(ax2, right=True, top=True)
+    ax2.spines['left'].set_bounds(-np.pi/2, np.pi/2)
+    ax2.spines['bottom'].set_bounds(0, 5000)
+
+
+def figure_2():
+    (t, v, I, theta_0), _ = run_cortical_model(duration=1000*ms,
+                                               connection_probability=0.5)
 
 
 if __name__ == "__main__":
+    matplotlib.rcdefaults()
+    matplotlib.rc('text', usetex=True)
+    matplotlib.rc('font', **{'family': 'sans-serif',
+                             'sans-serif': ['Helvetica']})
+    matplotlib.rc('text.latex', preamble=r'''    
+    \usepackage{sansmathfonts}
+    \usepackage{helvet}
+    \renewcommand{\rmdefault}{\sfdefault}
+    \usepackage{units}''')
+
     figure_1()
-    multipage('drafting_figure_1')
+    multipage('drafting_figure_1', fmt='eps')
     plt.show()

@@ -13,6 +13,9 @@ import time
 import os
 
 
+def despine(ax, **kwargs):
+    [ax.spines[k].set_visible(not v) for k, v in kwargs.items()]
+
 def add_peaks(v, spike_monitor, v_peak):
     v_with_peaks = v
     for i_neuron, spike_times in spike_monitor.all_values()['t'].items():
@@ -110,12 +113,15 @@ def multipage(filename=None, figs=None, dpi=200, fmt='pdf'):
 
 def plot_traces(t, v, ax):
     max_delta = np.max(v.flatten()) - np.min(v.flatten())
-    x = t
-    y = (v + (max_delta * 1.1) * np.reshape(np.arange(0, len(v)), (-1, 1))).T
+    x = t.T
+    space_idx = np.arange(0, len(v))
+    space_idx[space_idx >= (len(v) / 2)] += 2
+    delta_factor = 1.2
+    y = (v + (max_delta * delta_factor) * np.reshape(space_idx, (-1, 1))).T
     p = ax.plot(x / ms, y / mV, 'k-')
     ax.set_xlim(auto=True)
     ax.set_ylim(auto=True)
-    return p
+    return p, (max_delta * delta_factor, space_idx)
 
 
 def misc():
