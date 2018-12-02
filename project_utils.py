@@ -13,6 +13,15 @@ import time
 import os
 
 
+def add_peaks(v, spike_monitor, v_peak):
+    v_with_peaks = v
+    for i_neuron, spike_times in spike_monitor.all_values()['t'].items():
+        for spike_time in spike_times:
+            i_time = int(spike_time / defaultclock.dt)
+            v_with_peaks[i_neuron, i_time] = v_peak
+    return v_with_peaks
+
+
 def visualise_connectivity(S):
     Ns = len(S.source)
     Nt = len(S.target)
@@ -28,8 +37,8 @@ def visualise_connectivity(S):
     xlim(-0.1, 1.1)
     ylim(-1, max(Ns, Nt))
     subplot(132)
-    max_weight = np.max(np.abs(np.array(S.w_syn).flatten()))
-    scatter(S.i, S.j, s=((S.w_syn / max_weight) * 2.5) ** 2, c='k')
+    max_weight = np.max(np.abs(np.array(S.w_syn_sign).flatten()))
+    scatter(S.i, S.j, s=((S.w_syn_sign / max_weight) * 2.5) ** 2, c='k')
     xlim(-1, Ns)
     ylim(-1, Nt)
     xlabel('Source neuron index')
@@ -82,21 +91,92 @@ def plot_correlations(nc, src, target, s, nme):
 
 def multipage(filename=None, figs=None, dpi=200, fmt='pdf'):
     if filename is None:
-        filename = 'all_figures_%s' % time.strftime('%y%m%d-%H%M')
+        filename = 'all_figures'
+    filename = filename + '_' + time.strftime('%y%m%d-%H%M')
 
     if figs is None:
         figs = [plt.figure(n) for n in plt.get_fignums()]
 
     file_path = os.path.join('figures', filename)
     if fmt == 'pdf':
+        file_path += '.pdf'
         with PdfPages(file_path) as pp:
-            file_path += '.pdf'
             for fig in figs:
                 fig.savefig(pp, format='pdf', dpi=dpi)
     else:
-
         for i, fig in enumerate(figs):
             fig.savefig('%s_%d.%s' % (file_path, i, fmt), format=fmt, dpi=dpi)
+
+
+def plot_traces(t, v, ax):
+    max_delta = np.max(v.flatten()) - np.min(v.flatten())
+    x = t
+    y = (v + (max_delta * 1.1) * np.reshape(np.arange(0, len(v)), (-1, 1))).T
+    p = ax.plot(x / ms, y / mV, 'k-')
+    ax.set_xlim(auto=True)
+    ax.set_ylim(auto=True)
+    return p
+
+
+def misc():
+    traces = []
+    for st_m, sp_m in zip(state_monitors, spike_monitors):
+        V = st_m.vm
+        for ky, vl in sp_m.all_values()['t'].items():
+            for t in vl:
+                V[ky, int(t / defaultclock.dt)] = Vpeak
+        traces.append(V)
+
+    fig, axs = plt.subplots(1, 2, figsize=(15, 8))
+    for ax, m, nme, tr in zip(axs, state_monitors, ng_names, traces):
+        x = np.array([m.t for _ in tr]).T / (1 * ms)
+        max_delta = np.max(tr.flatten()) - np.min(tr.flatten())
+        y = (tr + (max_delta * 1.1) * np.reshape(np.arange(0, len(tr)),
+                                                 (-1, 1))).T
+        ax.plot(x, y / mV, 'k-')
+        ax.set_xlim(auto=True)
+        ax.set_ylim(auto=True)
+        ax.set_title(nme)
+
+    fig, axs = plt.subplots(1, 2, figsize=(15, 8))
+    for ax, m, nme in zip(axs, state_monitors, ng_names):
+        x = np.array([m.t for _ in m.I]).T / (1 * ms)
+        max_delta = np.max(m.I.flatten()) - np.min(m.I.flatten())
+        y = (m.I + (max_delta * 1.1) * np.reshape(np.arange(0, len(m.I)),
+                                                  (-1, 1))).T
+        ax.plot(x, y / nA, 'k-')
+        ax.set_xlim(auto=True)
+        ax.set_ylim(auto=True)
+        ax.set_title(nme)
+
+
+
+    # plot_correlations(NC, src=(me_v / mV), target=(me_v / mV),
+    #                   nme='E -> E', s=s_ee)
+    # plot_correlations(NC, src=(mi_v / mV), target=(mi_v / mV),
+    #                   nme='I -> I', s=s_ii)
+    # plot_correlations(NC, src=(mi_v / mV), target=(me_v / mV),
+    #                   nme='I -> E', s=s_ei)
+    # plot_correlations(NC, src=(me_v / mV), target=(mi_v / mV),
+    #                   nme='E -> I', s=s_ie)
+
+    # fig, axs = plt.subplots(5, 5, figsize=(10, 10))
+    # plt.tight_layout()
+    # for i in range(5):
+    #     for j in range(5):
+    #         axs[i, j].scatter(me_v[i], mi_v[j], c='k', marker='o')
+    #         corr, p_value = pearsonr(me_v[i], mi_v[j])
+    #         axs[i, j].set_title("r=" + '%.2f' % corr)
+    #         grangertests(me_v[i], mi_v[j])
+    #
+    # fig, axs = plt.subplots(5, 5, figsize=(10, 10))
+    # plt.tight_layout()
+    # for i in range(5):
+    #     for j in range(5):
+    #         axs[i, j].scatter(me_v[i], me_v[j], c='k', marker='o')
+    #         corr, p_value = pearsonr(me_v[i], mi_v[j])
+    #         axs[i, j].set_title("r=" + '%.2f' % corr)
+    #         grangertests(me_v[i], mi_v[j])
 
 # Pick the lag that is more significant (higher p-value)
 def grangertests(v1, v2, maxlag=3):
