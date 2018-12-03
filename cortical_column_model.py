@@ -21,7 +21,14 @@ def run_cortical_model(duration=500 * ms,
                        synapse_factor_E=1,
                        synapse_factor_I=1,
                        theta_0_expr='theta_in',
-                       i_switch_expr='1'):
+                       i_switch_expr='1',
+                       b=0.000850 * nA,
+                       epsilon=0.4,
+                       J_0_alpha_E=1.8,
+                       J_2_alpha_E=1.2,
+                       J_0_alpha_I=-1.5,
+                       J_2_alpha_I=-1,
+                       max_synapse_magnitude=85 * mV):
 
     start_scope()
     # Neuron Parameters
@@ -38,7 +45,7 @@ def run_cortical_model(duration=500 * ms,
 
     # Electrophysiological behaviour
     # > Regular Spiking
-    tauw, a, b, Vr = 144 * ms, 4 * nS, 0.0805 * nA, -70.6 * mV
+    tauw, a, b, Vr = 144 * ms, 4 * nS, b, -70.6 * mV
     # > Bursting
     # tauw,a,b,Vr=20*ms,4*nS,0.5*nA,VT+5*mV # Bursting
     # > Fast Spiking
@@ -46,12 +53,8 @@ def run_cortical_model(duration=500 * ms,
 
     # Network & Synapse Parameters
     C_alpha_0 = 1 * nA
-    epsilon = 0.4
-    J_0_alpha_E = 1.8
-    J_2_alpha_E = 1.2
-    J_0_alpha_I = -1.5
-    J_2_alpha_I = -1
-    max_synapse_magnitude = 85 * mV
+
+
     connection_p_max = connection_probability
 
     # Computed Parameters
@@ -224,6 +227,31 @@ def figure_1():
 def figure_2():
     (t, v, I, theta_0), _ = run_cortical_model(duration=1000*ms,
                                                connection_probability=0.5)
+
+
+def generate_learning_set(N=10):
+    def rand_in_range(low, high):
+        return low + (high - low) * np.random.rand()
+
+    random_vars = [
+        ('connection_probability', lambda _: rand_in_range(0, 1)),
+        ('theta_noise_sigma', lambda _: rand_in_range(0, 0.5)),
+        ('neuron_noise', lambda _: rand_in_range(2, 4) * mV),
+        ('b', lambda _: rand_in_range(500E-6, 1E-3) * nA),
+        ('epsilon', lambda _: rand_in_range(0.05, 0.5)),
+        ('J_0_alpha_E', lambda _: rand_in_range(1, 2)),
+        ('J_0_alpha_I', lambda _: rand_in_range(1, 2)),
+        ('J_2_alpha_E', lambda dct: rand_in_range(0.75, dct['J_0_alpha_E'])),
+        ('J_2_alpha_I', lambda dct: rand_in_range(0.75, dct['J_0_alpha_I'])),
+        ('max_synapse_magnitude', lambda _: rand_in_range(80, 90) * mV),
+    ]
+
+    kwargs = dict(num_columns=5)
+
+    for i_simulation in range(N):
+        for nme, fun in random_vars:
+            kwargs[nme] = fun(kwargs)
+        (_, v_traces, _, _), synapses = run_cortical_model(**kwargs)
 
 
 if __name__ == "__main__":
