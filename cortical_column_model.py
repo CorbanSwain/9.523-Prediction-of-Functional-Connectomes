@@ -368,3 +368,5 @@ if __name__ == "__main__":
     [generate_learning_set(*args) for args in runs]
     multipage('drafting_figure_2')
     plt.show()
+
+# windows pc command = C:\Users\CorbanSwain\AppData\Local\Programs\Python\Python36\python.exe C:\Users\CorbanSwain\repos\9.523_project\cortical_column_model.py
