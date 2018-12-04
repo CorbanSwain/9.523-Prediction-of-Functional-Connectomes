@@ -1,0 +1,34 @@
+Use TensorFlow to (re)train image classifier of neuron connection spike simulation images, based on a model trained on the ImageNet Large Visual Recognition Challenge dataset. Retrain a MobileNet convolutional neural network (CNN) model with input image resolution at 224px. The relative size of the model as a fraction of the largest MobileNet is 0.5.
+
+Based on setup at https://codelabs.developers.google.com/codelabs/tensorflow-for-poets/#0.
+
+The simulation dataset for training is at https://drive.google.com/drive/folders/1f7P9f557kwftUln9jz4OhaIYsVJQGPRB with labeled output as sub-folder names under folder "traces". Move the traces folder under tf_files
+
+Run the following commands in linux based OS.
+
+> pip install --upgrade "tensorflow==1.7.*"
+
+> git clone https://github.com/googlecodelabs/tensorflow-for-poets-2
+
+> cd tensorflow-for-poets-2
+
+> IMAGE_SIZE=224
+> ARCHITECTURE="mobilenet_0.50_${IMAGE_SIZE}"
+
+Start tensorboard in the background monitoring the training progress.
+
+> tensorboard --logdir tf_files/training_summaries &
+
+ImageNet models are networks with millions of parameters and many layers. Only train the final layer of the networkto save time. Remove --how_many_training_steps to improve training result with the default of 4000 steps.
+
+Start the retraining with the following command with the --summaries_dir option to save training progress reports to the directory that tensorboard is monitoring.
+
+> python -m scripts.retrain \
+  --bottleneck_dir=tf_files/bottlenecks \
+  --model_dir=tf_files/models/"${ARCHITECTURE}" \
+  --summaries_dir=tf_files/training_summaries/"${ARCHITECTURE}" \
+  --output_graph=tf_files/retrained_graph.pb \
+  --output_labels=tf_files/retrained_labels.txt \
+  --architecture="${ARCHITECTURE}" \
+  --image_dir=tf_files/traces \
+  --how_many_training_steps=500
