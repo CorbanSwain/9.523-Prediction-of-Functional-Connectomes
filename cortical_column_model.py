@@ -31,6 +31,7 @@ def run_cortical_model(duration=500 * ms,
                        max_synapse_magnitude=85 * mV):
 
     start_scope()
+
     # Neuron Parameters
     C = 281 * pF
     gL = 30 * nS
@@ -63,6 +64,7 @@ def run_cortical_model(duration=500 * ms,
                      for i in range(num_columns)]
     J_max = np.max([abs(J_0_alpha_E + J_2_alpha_E), abs(J_0_alpha_I + J_2_alpha_I)])
 
+    # Defining Neuron Dynamics
     spiking_neuron_eqns = '''
     dvm/dt = (gL * (EL - vm) + gL * DeltaT * exp((vm - VT)/DeltaT) + I - w) / C + (sigma * xi * taum ** -0.5) : volt
     dw/dt = (a * (vm - EL) - w) / tauw : amp
@@ -81,9 +83,9 @@ def run_cortical_model(duration=500 * ms,
                           threshold='vm > Vcut',
                           reset='vm = Vr; w += b',
                           method='euler')
-    # Set Initial Voltage
-    neurons.vm = EL
+    neurons.vm = EL #sets initial voltage
 
+    # Defining functions to set theta- and E/I-varying neuron parameters
     def make_neuron_val_array(fun):
         return [fun(i) for i in range(num_neurons)]
 
@@ -122,6 +124,7 @@ def run_cortical_model(duration=500 * ms,
                               fun_excit=make_mag_fun(synapse_factor_E),
                               fun_inhib=make_mag_fun(synapse_factor_I))
 
+    # Setting variable parameters
     (neurons.C_alpha,
      neurons.J_0,
      neurons.J_2,
@@ -136,6 +139,7 @@ def run_cortical_model(duration=500 * ms,
                                                get_synapse_magnitude)]
 
     if connection_p_max > 0:
+        # Defining synapse dynamics and connections
         synapse_model = '''
         delta_theta = theta_post - theta_pre : 1
         J_2_term = J_2_pre * cos(2.0 * (delta_theta + theta_noise_pre)) : 1
@@ -145,25 +149,29 @@ def run_cortical_model(duration=500 * ms,
         inter_synapse_on_pre = '''
         vm += w_syn_sign * synapse_magnitude_pre / (connection_p_max * num_neurons)
         '''
-        inter_synapse_kwargs = dict(
-            model=synapse_model,
-            on_pre=inter_synapse_on_pre,
-            delay=delay)
-        synapses = Synapses(neurons, neurons, **inter_synapse_kwargs)
+        synapses = Synapses(neurons, neurons,
+                            model=synapse_model,
+                            on_pre=inter_synapse_on_pre,
+                            delay=delay)
         synapses.connect(p='connection_p_max * abs(w_syn) / J_max')
     else:
         synapses = None
 
+    # Setting up monitors to record during the simulated activity
     spike_monitor = SpikeMonitor(neurons)
     state_monitor = StateMonitor(neurons, ('vm', 'I', 'theta_0'), record=True)
+
+    # Performing simulation
     run(duration)
+
+    # Preparing outputs and returning
     t_repeated = np.array([state_monitor.t for _ in state_monitor.vm]) * second
     v_with_peaks = add_peaks(state_monitor.vm, spike_monitor, Vpeak)
     return (t_repeated, v_with_peaks, state_monitor.I, state_monitor.theta_0), synapses
 
 
 def figure_1():
-    print('F1 - Beginning Unconnected Simulation')
+    print('F1 - Beginning unconnected simulation.')
     theta_0_expr = 'int(t > (1000.0 * ms)) * (pi * (-1.0 / 2.0 + (t - 1000.0 * ms) / (4000.0 * ms)))'
     i_switch_expr = 'int(abs(t - (750.0 * ms)) > (250.0 * ms))'
     (t, v, I, theta_0), _ = run_cortical_model(duration=5000*ms,
@@ -171,6 +179,7 @@ def figure_1():
                                                connection_probability=0,
                                                theta_0_expr=theta_0_expr,
                                                i_switch_expr=i_switch_expr)
+    print('F1 - Making plots.')
     fig = plt.figure(figsize=(6.5, 4.5))
     gs = GridSpec(5, 1, hspace=0.4)
     ax1 = plt.subplot(gs[:-1, :])
@@ -219,14 +228,17 @@ def figure_1():
     ax2.set_xlim(ax1.get_xlim())
     ax2.tick_params(axis='y', which='major', pad=2)
     ax2.set_ylabel(r'$\theta_0$')
+    ax2.set_xlabel(r'$t$')
     despine(ax2, right=True, top=True)
     ax2.spines['left'].set_bounds(-np.pi/2, np.pi/2)
     ax2.spines['bottom'].set_bounds(0, 5000)
 
 
 def figure_2():
+    print('F2 - Beginning simulation.')
     (t, v, I, theta_0), _ = run_cortical_model(duration=1000*ms,
                                                connection_probability=0.5)
+    print('F2 - Making plots.')
 
 
 def generate_learning_set(N=10):
@@ -244,27 +256,45 @@ def generate_learning_set(N=10):
         ('J_2_alpha_E', lambda dct: rand_in_range(0.75, dct['J_0_alpha_E'])),
         ('J_2_alpha_I', lambda dct: rand_in_range(0.75, dct['J_0_alpha_I'])),
         ('max_synapse_magnitude', lambda _: rand_in_range(80, 90) * mV),
+        ('theta_in', lambda _: rand_in_range(-np.pi/2, pi/2)),
     ]
 
-    kwargs = dict(num_columns=5)
+    def lazy_setdefault(dct, ky, valfun, *args):
+        if ky not in dct:
+            dct[ky] = valfun(*args)
+
+    kwargs_init = dict(
+        duration=500 * ms,
+        num_columns=5,
+        theta_noise_sigma=np.pi / 2,
+        neuron_noise=3 * mV,
+        b=0.000850 * nA,
+        J_0_alpha_E=1.8,
+        J_2_alpha_E=1.2,
+        J_0_alpha_I=-1.5,
+        J_2_alpha_I=-1,
+    )
 
     for i_simulation in range(N):
-        for nme, fun in random_vars:
-            kwargs[nme] = fun(kwargs)
-        (_, v_traces, _, _), synapses = run_cortical_model(**kwargs)
+        kwargs = dict(kwargs_init)
+        for ky, randfun in random_vars:
+            lazy_setdefault(kwargs, ky, randfun, kwargs)
 
+        print(kwargs)
+        (t, v_traces, _, _), synapses = run_cortical_model(**kwargs)
+        make_training_image_pair(t, v_traces, synapses)
 
 if __name__ == "__main__":
     matplotlib.rcdefaults()
     matplotlib.rc('text', usetex=True)
-    matplotlib.rc('font', **{'family': 'sans-serif',
-                             'sans-serif': ['Helvetica']})
     matplotlib.rc('text.latex', preamble=r'''    
     \usepackage{sansmathfonts}
     \usepackage{helvet}
     \renewcommand{\rmdefault}{\sfdefault}
     \usepackage{units}''')
 
-    figure_1()
-    multipage('drafting_figure_1', fmt='eps')
+    # figure_1()
+    # figure_2()
+    generate_learning_set()
+    multipage('drafting_figure_2')
     plt.show()

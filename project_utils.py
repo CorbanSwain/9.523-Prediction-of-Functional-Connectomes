@@ -13,6 +13,9 @@ import time
 import os
 
 
+def despine_all(ax):
+    despine(ax, **{pos: True for pos in ('left', 'right', 'top', 'bottom')})
+
 def despine(ax, **kwargs):
     [ax.spines[k].set_visible(not v) for k, v in kwargs.items()]
 
@@ -122,6 +125,45 @@ def plot_traces(t, v, ax):
     ax.set_xlim(auto=True)
     ax.set_ylim(auto=True)
     return p, (max_delta * delta_factor, space_idx)
+
+
+def make_training_image_pair(t, v, s, directory='training', idx=0):
+    try:
+        os.mkdir(directory)
+    except FileExistsError:
+        pass
+    x = t.T / ms
+    n_neurons = len(t)
+    gap = 250
+    baseline = -210
+    y = (v / mV + gap * np.reshape(np.arange(0, n_neurons), (-1, 1))).T
+    fig = plt.figure(figsize=(5, 5))
+    gs = plt.GridSpec(1, 1, left=0, right=1, bottom=0, top=1, figure=fig)
+    ax = plt.subplot(gs[0, 0])
+    ax.plot(x, y, 'w-')
+    ax.set_xlim(x[0, 0], x[-1, 0])
+    ax.set_ylim(baseline, baseline + gap * n_neurons)
+    ax.axis('off')
+    pth = os.path.join(directory, 'trace_%d.png' % idx)
+    fig.patch.set_facecolor('k')
+    fig.savefig(pth, dpi=100, pad_inches=0, facecolor='k')
+
+    x = s.i
+    y = s.j
+    sz = 30 / (n_neurons / 10)
+    c = ['k' if x == -1 else 'w' for x in s.w_syn_sign]
+    fig = plt.figure(figsize=(5, 5))
+    gs = plt.GridSpec(1, 1, left=0, right=1, bottom=0, top=1, figure=fig)
+    ax = plt.subplot(gs[0, 0])
+    face_c = (0.5, 0.5, 0.5)
+    ax.scatter(x, y, s=sz ** 2, c=c, marker='s')
+    ax.set_xlim(-0.5, n_neurons + 0.5)
+    ax.set_ylim(-0.5, n_neurons + 0.5)
+    ax.axis('off')
+    pth = os.path.join(directory, 'connect_%d.png' % idx)
+    fig.patch.set_facecolor(face_c)
+    fig.savefig(pth, dpi=n_neurons / 5, pad_inches=0, facecolor=face_c)
+    plt.show()
 
 
 def misc():
