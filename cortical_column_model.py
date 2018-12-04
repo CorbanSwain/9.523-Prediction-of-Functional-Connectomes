@@ -298,7 +298,7 @@ def generate_learning_set(num_simulations=1000, do_shuffle_traces=False, directo
         ('max_synapse_magnitude', lambda _: rand_in_range(85 - 3, 85 + 3) * mV),
         ('theta_in', lambda _: rand_in_range(-np.pi/2, pi/2)),
         ('synapses_allowed',
-         lambda _: synapses_allowed_list[np.random.randint(0, 5)]),
+         lambda _: synapses_allowed_list[np.random.randint(0, len(synapses_allowed_list))]),
         ('C_alpha_0', lambda _: rand_in_range(0.9, 1.2) * nA)
     ]
 
@@ -324,18 +324,29 @@ def generate_learning_set(num_simulations=1000, do_shuffle_traces=False, directo
         # C_alpha_0=1 * nA,
     )
 
-    directory = os.path.join('training', directory)
+    sub_dir = directory
+    directory = os.path.join('training', sub_dir)
     if os.path.exists(directory):
         directory = directory + '_' + time.strftime('%y%m%d-%H%M')
 
     touchdir(directory)
+    t0 = datetime.datetime.now()
     for i_simulation in range(num_simulations):
         kwargs = dict(kwargs_init)
         for ky, randfun in random_vars:
             lazy_setdefault(kwargs, ky, randfun, kwargs)
-        print('Sim: %5d / %5d --> %20s' % (i_simulation, num_simulations, directory))
+        ti = datetime.datetime.now()
+        dt = ti - t0
+        rate = i_simulation / (dt.total_seconds() / 60)
+        time_left = (rate * (num_simulations - i_simulation)) / 60
+        print('Sim: %5d / %5d | %4.1f run/min | %4.2f hr remain | save to -> %-20s'
+              % (i_simulation, num_simulations, rate, time_left, sub_dir))
         (t, v_traces, _, _), synapses = run_cortical_model(**kwargs)
-        full_dir = os.path.join(directory, kwargs['synapses_allowed'])
+        if do_shuffle_labels:
+            given_label = synapses_allowed_list[np.random.randint(0, len(synapses_allowed_list))]
+        else:
+            given_label = kwargs['synapses_allowed']
+        full_dir = os.path.join(directory,given_label)
         make_training_image_pair(t,
                                  v_traces,
                                  synapses,
@@ -364,7 +375,6 @@ if __name__ == "__main__":
         (num_sims, False, 'negative_control', True),
         (num_sims, True, 'shuffled_negative_control', True)
     ]
-
     [generate_learning_set(*args) for args in runs]
     multipage('drafting_figure_2')
     plt.show()
