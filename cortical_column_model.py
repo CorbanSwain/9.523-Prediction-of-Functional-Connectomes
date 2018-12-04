@@ -12,6 +12,8 @@ from matplotlib.markers import MarkerStyle
 from scipy.stats.stats import pearsonr
 import matplotlib.collections as collections
 
+synapses_allowed_list = ['e_to_e', 'e_to_i', 'i_to_e', 'i_to_i', 'all']
+
 def run_cortical_model(duration=500 * ms,
                        num_columns=5,
                        theta_in=0,
@@ -28,7 +30,11 @@ def run_cortical_model(duration=500 * ms,
                        J_2_alpha_E=1.2,
                        J_0_alpha_I=-1.5,
                        J_2_alpha_I=-1,
-                       max_synapse_magnitude=85 * mV):
+                       max_synapse_magnitude=85 * mV,
+                       synapses_allowed='all',
+                       C_alpha_0=1 * nA,
+                       synapse_weight_expr='w_syn_sign',
+                       do_conditionally_connect=True):
 
     start_scope()
 
@@ -53,9 +59,6 @@ def run_cortical_model(duration=500 * ms,
     # tauw,a,b,Vr=144*ms,2*C/(144*ms),0*nA,-70.6*mV # Fast spiking
 
     # Network & Synapse Parameters
-    C_alpha_0 = 1 * nA
-
-
     connection_p_max = connection_probability
 
     # Computed Parameters
@@ -77,6 +80,8 @@ def run_cortical_model(duration=500 * ms,
     synapse_magnitude : volt
     J_0 : 1
     J_2 : 1
+    e_neuron : 1 
+    i_neuron : 1
     ''' % (i_switch_expr, theta_0_expr)
     neurons = NeuronGroup(N=num_neurons,
                           model=spiking_neuron_eqns,
@@ -124,19 +129,44 @@ def run_cortical_model(duration=500 * ms,
                               fun_excit=make_mag_fun(synapse_factor_E),
                               fun_inhib=make_mag_fun(synapse_factor_I))
 
+    def get_e_neuron(idx):
+        return get_neuron_val(idx, lambda _: 1, lambda _: 0)
+
+    def get_i_neuron(idx):
+        return get_neuron_val(idx, lambda _: 0, lambda _: 1)
+
     # Setting variable parameters
     (neurons.C_alpha,
      neurons.J_0,
      neurons.J_2,
      neurons.theta,
      neurons.theta_noise,
-     neurons.synapse_magnitude) = [make_neuron_val_array(fun)
-                                   for fun in (get_c_alpha,
-                                               get_j_0,
-                                               get_j_2,
-                                               get_theta,
-                                               get_theta_noise,
-                                               get_synapse_magnitude)]
+     neurons.synapse_magnitude,
+     neurons.e_neuron,
+     neurons.i_neuron) \
+        = [make_neuron_val_array(fun)
+           for fun in (get_c_alpha,
+                       get_j_0,
+                       get_j_2,
+                       get_theta,
+                       get_theta_noise,
+                       get_synapse_magnitude,
+                       get_e_neuron,
+                       get_i_neuron)]
+
+    if synapses_allowed == 'all':
+        connect_cond_str = '1'
+    elif synapses_allowed == 'e_to_e':
+        connect_cond_str = 'e_neuron_pre * e_neuron_post'
+    elif synapses_allowed == 'e_to_i':
+        connect_cond_str = 'e_neuron_pre * i_neuron_post'
+    elif synapses_allowed == 'i_to_e':
+        connect_cond_str = 'i_neuron_pre * e_neuron_post'
+    elif synapses_allowed == 'i_to_i':
+        connect_cond_str = 'i_neuron_pre * e_neuron_post'
+
+    if not do_conditionally_connect:
+        connection_p_max = 1
 
     if connection_p_max > 0:
         # Defining synapse dynamics and connections
@@ -145,15 +175,23 @@ def run_cortical_model(duration=500 * ms,
         J_2_term = J_2_pre * cos(2.0 * (delta_theta + theta_noise_pre)) : 1
         w_syn = J_0_pre + J_2_term : 1 
         w_syn_sign = sign(w_syn) : 1
-        '''
+        w_syn_applied = %s : 1
+        connect_cond = %s : 1
+        ''' % (synapse_weight_expr, connect_cond_str)
         inter_synapse_on_pre = '''
-        vm += w_syn_sign * synapse_magnitude_pre / (connection_p_max * num_neurons)
+        vm += w_syn_applied * synapse_magnitude_pre / (connection_p_max * num_neurons)
         '''
         synapses = Synapses(neurons, neurons,
                             model=synapse_model,
                             on_pre=inter_synapse_on_pre,
                             delay=delay)
-        synapses.connect(p='connection_p_max * abs(w_syn) / J_max')
+
+        connect_kwargs = dict()
+        if do_conditionally_connect:
+            connect_kwargs['p'] = 'connect_cond * connection_p_max * abs(w_syn) / J_max'
+        else:
+            connect_kwargs['p'] = 'connect_cond'
+        synapses.connect(**connect_kwargs)
     else:
         synapses = None
 
@@ -241,22 +279,27 @@ def figure_2():
     print('F2 - Making plots.')
 
 
-def generate_learning_set(N=10):
+def generate_learning_set(num_simulations=1000, do_shuffle_traces=False, directory='training',
+                          do_shuffle_labels=False):
+
     def rand_in_range(low, high):
         return low + (high - low) * np.random.rand()
 
     random_vars = [
-        ('connection_probability', lambda _: rand_in_range(0, 1)),
+        ('connection_probability', lambda _: rand_in_range(0.4, 1)),
         ('theta_noise_sigma', lambda _: rand_in_range(0, 0.5)),
         ('neuron_noise', lambda _: rand_in_range(2, 4) * mV),
         ('b', lambda _: rand_in_range(500E-6, 1E-3) * nA),
-        ('epsilon', lambda _: rand_in_range(0.05, 0.5)),
+        ('epsilon', lambda _: rand_in_range(0.1, 0.5)),
         ('J_0_alpha_E', lambda _: rand_in_range(1, 2)),
         ('J_0_alpha_I', lambda _: rand_in_range(1, 2)),
         ('J_2_alpha_E', lambda dct: rand_in_range(0.75, dct['J_0_alpha_E'])),
         ('J_2_alpha_I', lambda dct: rand_in_range(0.75, dct['J_0_alpha_I'])),
-        ('max_synapse_magnitude', lambda _: rand_in_range(80, 90) * mV),
+        ('max_synapse_magnitude', lambda _: rand_in_range(85 - 3, 85 + 3) * mV),
         ('theta_in', lambda _: rand_in_range(-np.pi/2, pi/2)),
+        ('synapses_allowed',
+         lambda _: synapses_allowed_list[np.random.randint(0, 5)]),
+        ('C_alpha_0', lambda _: rand_in_range(0.9, 1.2) * nA)
     ]
 
     def lazy_setdefault(dct, ky, valfun, *args):
@@ -266,23 +309,41 @@ def generate_learning_set(N=10):
     kwargs_init = dict(
         duration=500 * ms,
         num_columns=5,
+        connection_probability=0.5,
         theta_noise_sigma=np.pi / 2,
         neuron_noise=3 * mV,
         b=0.000850 * nA,
+        # epsilon=0.4,
         J_0_alpha_E=1.8,
         J_2_alpha_E=1.2,
         J_0_alpha_I=-1.5,
         J_2_alpha_I=-1,
+        max_synapse_magnitude=85 * mV,
+        do_conditionally_connect=False,
+        synapse_weight_expr='w_syn',
+        # C_alpha_0=1 * nA,
     )
 
-    for i_simulation in range(N):
+    directory = os.path.join('training', directory)
+    if os.path.exists(directory):
+        directory = directory + '_' + time.strftime('%y%m%d-%H%M')
+
+    touchdir(directory)
+    for i_simulation in range(num_simulations):
         kwargs = dict(kwargs_init)
         for ky, randfun in random_vars:
             lazy_setdefault(kwargs, ky, randfun, kwargs)
-
-        print(kwargs)
+        print('Sim: %5d / %5d --> %20s' % (i_simulation, num_simulations, directory))
         (t, v_traces, _, _), synapses = run_cortical_model(**kwargs)
-        make_training_image_pair(t, v_traces, synapses)
+        full_dir = os.path.join(directory, kwargs['synapses_allowed'])
+        make_training_image_pair(t,
+                                 v_traces,
+                                 synapses,
+                                 idx=i_simulation,
+                                 px_dim=224,
+                                 directory=full_dir,
+                                 do_shuffle=do_shuffle_traces)
+
 
 if __name__ == "__main__":
     matplotlib.rcdefaults()
@@ -295,6 +356,15 @@ if __name__ == "__main__":
 
     # figure_1()
     # figure_2()
-    generate_learning_set()
+
+    num_sims = 3500
+    runs = [
+        (num_sims, False, 'traces', False),
+        (num_sims, True, 'shuffled_traces', False),
+        (num_sims, False, 'negative_control', True),
+        (num_sims, True, 'shuffled_negative_control', True)
+    ]
+
+    [generate_learning_set(*args) for args in runs]
     multipage('drafting_figure_2')
     plt.show()

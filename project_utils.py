@@ -11,7 +11,16 @@ from scipy.stats.stats import pearsonr
 import datetime
 import time
 import os
+from PIL import Image
+import pprint as pp
+import multiprocessing
 
+
+def touchdir(pth):
+    try:
+        os.mkdir(pth)
+    except FileExistsError:
+        pass
 
 def despine_all(ax):
     despine(ax, **{pos: True for pos in ('left', 'right', 'top', 'bottom')})
@@ -127,17 +136,17 @@ def plot_traces(t, v, ax):
     return p, (max_delta * delta_factor, space_idx)
 
 
-def make_training_image_pair(t, v, s, directory='training', idx=0):
-    try:
-        os.mkdir(directory)
-    except FileExistsError:
-        pass
+def make_training_image_pair(t, v, s, directory='training', idx=0, px_dim=500, do_shuffle=False):
+    touchdir(directory)
+    fig_sz = 5
     x = t.T / ms
     n_neurons = len(t)
-    gap = 250
-    baseline = -210
+    gap = 190
+    baseline = -155
+    if do_shuffle:
+        np.random.shuffle(v)
     y = (v / mV + gap * np.reshape(np.arange(0, n_neurons), (-1, 1))).T
-    fig = plt.figure(figsize=(5, 5))
+    fig = plt.figure(figsize=(fig_sz, fig_sz))
     gs = plt.GridSpec(1, 1, left=0, right=1, bottom=0, top=1, figure=fig)
     ax = plt.subplot(gs[0, 0])
     ax.plot(x, y, 'w-')
@@ -146,24 +155,42 @@ def make_training_image_pair(t, v, s, directory='training', idx=0):
     ax.axis('off')
     pth = os.path.join(directory, 'trace_%d.png' % idx)
     fig.patch.set_facecolor('k')
-    fig.savefig(pth, dpi=100, pad_inches=0, facecolor='k')
+    fig.savefig(pth, dpi=px_dim/fig_sz, pad_inches=0, facecolor='k')
+    plt.close(fig)
+    img = Image.open(pth).convert('L')
+    os.remove(pth)
+    pth = os.path.splitext(pth)[0] + '.jpg'
+    img.save(pth)
 
-    x = s.i
-    y = s.j
-    sz = 30 / (n_neurons / 10)
-    c = ['k' if x == -1 else 'w' for x in s.w_syn_sign]
-    fig = plt.figure(figsize=(5, 5))
-    gs = plt.GridSpec(1, 1, left=0, right=1, bottom=0, top=1, figure=fig)
-    ax = plt.subplot(gs[0, 0])
-    face_c = (0.5, 0.5, 0.5)
-    ax.scatter(x, y, s=sz ** 2, c=c, marker='s')
-    ax.set_xlim(-0.5, n_neurons + 0.5)
-    ax.set_ylim(-0.5, n_neurons + 0.5)
-    ax.axis('off')
-    pth = os.path.join(directory, 'connect_%d.png' % idx)
-    fig.patch.set_facecolor(face_c)
-    fig.savefig(pth, dpi=n_neurons / 5, pad_inches=0, facecolor=face_c)
-    plt.show()
+    # Connection plot (OUTPUT for ML)
+    # x = s.i
+    # y = s.j
+    # sz = 30 / (n_neurons / 10)
+    # c = ['k' if x == -1 else 'w' for x in s.w_syn_sign]
+    # fig = plt.figure(figsize=(fig_sz, fig_sz))
+    # gs = plt.GridSpec(1, 1, left=0, right=1, bottom=0, top=1, figure=fig)
+    # ax = plt.subplot(gs[0, 0])
+    # face_c = (0.5, 0.5, 0.5)
+    # ax.scatter(x, y, s=sz ** 2, c=c, marker='s')
+    # ax.set_xlim(-0.5, n_neurons + 0.5)
+    # ax.set_ylim(-0.5, n_neurons + 0.5)
+    # ax.axis('off')
+    # pth = os.path.join(directory, 'connect_%d.png' % idx)
+    # fig.patch.set_facecolor(face_c)
+    # fig.savefig(pth, dpi=n_neurons / fig_sz, pad_inches=0, facecolor=face_c)
+    # # img = Image.open(pth).convert('L')
+    # # os.remove(pth)
+    # # pth = os.path.splitext(pth)[0] + '.jpg'
+    # # img.save(pth)
+    #
+    # out_arr = np.ones((n_neurons, n_neurons)) * 0.5
+    # out_arr[s.j, s.i] = [0 if x == -1 else 1 for x in s.w_syn_sign]
+    # out_arr = (out_arr * (2 ** 8)).astype(np.uint8)
+    # img = Image.fromarray(out_arr)
+    # pth = os.path.join(directory, 'connect_%d.jpg' % idx)
+    # img.save(pth)
+
+    # plt.show()
 
 
 def misc():
@@ -197,8 +224,6 @@ def misc():
         ax.set_ylim(auto=True)
         ax.set_title(nme)
 
-
-
     # plot_correlations(NC, src=(me_v / mV), target=(me_v / mV),
     #                   nme='E -> E', s=s_ee)
     # plot_correlations(NC, src=(mi_v / mV), target=(mi_v / mV),
@@ -231,3 +256,27 @@ def grangertests(v1, v2, maxlag=3):
     g = granger([*zip(*[v1, v2]/mV)], maxlag, verbose=True)
     print(g)
     return g
+
+
+# parmap implementation for functions with non-trivial execution time
+def funmap(f, q_in, q_out):
+    while True:
+        i, x = q_in.get()
+        if i is None:
+            break
+        q_out.put((i, f(x)))
+    return
+
+
+def parmap(f, X, nprocs=(multiprocessing.cpu_count())):
+    q_in = multiprocessing.Queue(1)
+    q_out = multiprocessing.Queue()
+    proc = [multiprocessing.Process(target=funmap, args=(f, q_in, q_out)) for _ in range(nprocs)]
+    for p in proc:
+        p.daemon = True
+        p.start()
+    [q_in.put((i, x)) for i, x in enumerate(X)]
+    [q_in.put((None, None)) for _ in range(nprocs)]
+    res = [q_out.get() for _ in range(len(X))]
+    [p.join() for p in proc]
+    return [x for i, x in sorted(res)]
