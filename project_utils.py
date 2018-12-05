@@ -136,7 +136,7 @@ def plot_traces(t, v, ax):
     return p, (max_delta * delta_factor, space_idx)
 
 
-def make_training_image_pair(t, v, s, directory='training', idx=0, px_dim=500, do_shuffle=False):
+def make_training_image_pair(t, v, s, directory='training_data', idx=0, px_dim=500, do_shuffle=False):
     touchdir(directory)
     fig_sz = 5
     x = t.T / ms
