@@ -163,7 +163,7 @@ def run_cortical_model(duration=500 * ms,
     elif synapses_allowed == 'i_to_e':
         connect_cond_str = 'i_neuron_pre * e_neuron_post'
     elif synapses_allowed == 'i_to_i':
-        connect_cond_str = 'i_neuron_pre * e_neuron_post'
+        connect_cond_str = 'i_neuron_pre * i_neuron_post'
     elif synapses_allowed == 'none':
         connect_cond_str = '0'
 
