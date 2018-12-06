@@ -14,6 +14,19 @@ import os
 from PIL import Image
 import pprint as pp
 import multiprocessing
+import pickle
+
+
+def save_obj(obj, pth):
+    with open(pth + '.pkl', 'wb') as f:
+        pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
+
+
+def load_obj(pth):
+    extension = '.pkl'
+    pth = pth + ('' if pth.endswith(extension) else extension)
+    with open(pth, 'rb') as f:
+        return pickle.load(f)
 
 
 def touchdir(pth):
