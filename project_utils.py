@@ -15,7 +15,28 @@ from PIL import Image
 import pprint as pp
 import multiprocessing
 import pickle
+from matplotlib.offsetbox import AnchoredText
+import matplotlib.patches
+import matplotlib as mpl
+import matplotlib.cm
+import matplotlib.colors
 
+
+class Objdict(dict):
+    def __getattr__(self, name):
+        if name in self:
+            return self[name]
+        else:
+            raise AttributeError("No such attribute: " + name)
+
+    def __setattr__(self, name, value):
+        self[name] = value
+
+    def __delattr__(self, name):
+        if name in self:
+            del self[name]
+        else:
+            raise AttributeError("No such attribute: " + name)
 
 def save_obj(obj, pth):
     with open(pth + '.pkl', 'wb') as f:
@@ -76,7 +97,7 @@ def visualise_connectivity(S):
     plt.hist(S.w_syn, 10, color='k', edgecolor='w')
 
 
-def plot_correlations(nc, src, target, s, nme):
+def plot_correlations(nc, src, target, s, compare_test='correlation', connectivity=None):
     a, b = src, target
     all_vals = np.concatenate((a.flatten(), b.flatten()))
     lims = [np.min(all_vals), np.max(all_vals)]
@@ -84,38 +105,179 @@ def plot_correlations(nc, src, target, s, nme):
     lim_prct = 0.07
     lim_delta = lim_prct * lim_diff
     lims = [lims[0] - lim_delta, lims[1] + lim_delta]
-    fig, axs = plt.subplots(nc, nc, figsize=(10, 10))
-    plt.tight_layout(2.5, 0.02, 0.02)
-    fig.suptitle(nme)
-    plt.subplots_adjust(wspace=0.1, hspace=0.1)
+    fig = plt.figure(figsize=(10, 10))
+    gs_factor = 3
+    gs = plt.GridSpec(nc * gs_factor + 1, nc * gs_factor + 1, figure=fig,
+                      wspace=0, hspace=0)
+
+    normed_map2 = mpl.cm.ScalarMappable(norm=mpl.colors.Normalize(vmin=-1, vmax=1),
+                                        cmap=mpl.cm.RdBu)
+    normed_map1 = mpl.cm.ScalarMappable(norm=mpl.colors.Normalize(vmin=-1, vmax=1),
+                                        cmap=mpl.cm.RdBu)
+    for i in range(nc + 1):
+        for j in range(nc + 1):
+            if i == nc * gs_factor / 2 or j == nc * gs_factor / 2:
+                ax = plt.subplot(gs[i, j])
+                ax.set_axis_off()
+    match_count = 0
+    n = 0
     for i, i_row in enumerate(reversed(range(nc))):
         for j in range(nc):
-            ax = axs[i_row, j]
-            R = np.corrcoef(a[j].flatten(), b[i].flatten())[1, 0]
+            n += 1
+            print('%s Calculator Cycle # %d / %d' % (compare_test, n, nc ** 2))
+            if i_row >= nc / 2:
+                ax_row_idx = 1
+            else:
+                ax_row_idx = 0
+            if j >= nc / 2:
+                ax_col_idx = 1
+            else:
+                ax_col_idx = 0
+
+            ax = plt.subplot(gs[(i_row * gs_factor + ax_row_idx):((i_row + 1) * gs_factor + ax_row_idx),
+                             (j * gs_factor + ax_col_idx):((j + 1) * gs_factor + ax_col_idx)])
+            try:
+                w = float(s.w[np.logical_and(s.i == j, s.j == i)]) / 3
+            except TypeError:
+                w = 0
+            if compare_test == 'correlation':
+                R = np.corrcoef(a[j].flatten(), b[i].flatten())[1, 0]
+                metric = (R, R)
+                text2_args = ['\\textbf{R = %.2f}' % metric[1]]
+                if (metric[0] ** 2 > 0.75 and w > 0.1) or (metric[0] ** 2 < 0.75 and w < 0.1):
+                    match_count += 1
+            elif compare_test == 'granger':
+                gg = np.stack((b[i], a[j]), 1).T / mV
+                G = granger(gg.T, maxlag=20, verbose=False)
+                all_ps = []
+                for k_gr, v_gr in G.items():
+                    all_ps.append(v_gr[0]['ssr_ftest'][0])
+                all_ps = np.array(all_ps)
+                metric = (np.max(all_ps) / 300, np.max(all_ps))
+                text2_args = ['\\textbf{F = %.1f}' % metric[1]]
+                if (metric[0] > 0.035 and np.abs(w) > 0.1) or (metric[0] < 0.035 and np.abs(w) < 0.1):
+                    match_count += 1
             scatter_kwargs = dict(x=a[j], y=b[i], s=3, facecolors='none',
                                   edgecolors=(0, 0, 0, 0.2), marker='o',
                                   linewidths=0.5)
-            text_kwargs = dict(x=lims[0] + 5, y=lims[1] - 5, s=' %.2f' % R,
-                               color='k', verticalalignment='top',
-                               horizontalalignment='left')
-            if True in [i_val == j for i_val, j_val in zip(s.i, s.j)
-                        if j_val == i]:
-                ax.set_facecolor('k')
-                scatter_kwargs['edgecolors'] = (1, 1, 1, 0.2)
-                text_kwargs['color'] = 'w'
-            ax.scatter(**scatter_kwargs)
-            ax.text(**text_kwargs)
+            text1_args = ['\\textbf{w = %.2f}' % w]
+            text1_kwargs = dict(loc='lower right',
+                                frameon=False,
+                                pad=0.09,
+                                prop=dict(color='k',
+                                          fontsize='xx-small'
+                                          ),
+                                )
+
+            text2_kwargs = dict(text1_kwargs)
+            text2_kwargs['loc'] = 'upper left'
+
+            pt1 = mpl.patches.Polygon(np.array([[1, 1], [0, 0], [1, 0]]),
+                                      transform=ax.transAxes,
+                                      facecolor=normed_map1.to_rgba(w),
+                                      edgecolor='none',
+                                      alpha=0.6,
+                                      zorder=0.5
+                                      )
+            pt2 = mpl.patches.Polygon(np.array([[1, 1], [0, 0], [0, 1]]),
+                                      transform=ax.transAxes,
+                                      facecolor=normed_map2.to_rgba(metric[0]),
+                                      edgecolor='none',
+                                      alpha=0.6,
+                                      zorder=0.4
+                                      )
+            ax.add_artist(pt1)
+            ax.add_artist(pt2)
+            if compare_test == 'correlation':
+                ax.scatter(**scatter_kwargs)
+            ax.add_artist(AnchoredText(*text1_args, **text1_kwargs))
+            ax.add_artist(AnchoredText(*text2_args, **text2_kwargs))
             ax.set_xticklabels([])
             ax.set_yticklabels([])
             ax.set_xlim(*lims)
             ax.set_ylim(*lims)
-            if i_row == (nc - 1) and j == 0:
-                ax.set_xlabel('Source Neuron')
-                ax.set_ylabel('Target Neuron')
-            else:
-                ax.get_xaxis().set_visible(False)
-                ax.get_yaxis().set_visible(False)
+            ax.get_xaxis().set_visible(False)
+            ax.get_yaxis().set_visible(False)
 
+    ax = fig.add_subplot(gs[:, :])
+    ax.patch.set_alpha(0)
+    despine_all(ax)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_xlabel('Source Neuron', fontsize='large', labelpad=30)
+    ax.set_ylabel('Target Neuron', fontsize='large', labelpad=30)
+
+    gap_size = 1 / (gs_factor * nc + 1)
+    low_middle = 0.5 - gap_size / 2
+    high_middle = 0.5 + gap_size / 2
+    thickness = -0.03
+    cset1 = ('xkcd:golden yellow', 'k')
+    cset2 = ('k', 'w')
+
+    if connectivity in ('e_to_e', 'e_to_i', 'all'):
+        color = cset1
+    else:
+        color = cset2
+    pt = mpl.patches.Rectangle((0, -0.01),
+                               width=low_middle,
+                               height=thickness,
+                               transform=ax.transAxes,
+                               facecolor=color[0],
+                               edgecolor='k',
+                               clip_path=None,
+                               clip_on=False)
+    ax.text(low_middle/2, -0.01 + thickness / 2, '$E$', color=color[1], fontsize='large', verticalalignment='center',
+            horizontalalignment='center')
+    ax.add_artist(pt)
+
+    if connectivity in ('i_to_e', 'i_to_i', 'all'):
+        color = cset1
+    else:
+        color = cset2
+    pt = mpl.patches.Rectangle((high_middle, -0.01),
+                               width=low_middle,
+                               height=thickness,
+                               transform=ax.transAxes,
+                               facecolor=color[0],
+                               edgecolor='k',
+                               clip_path=None,
+                               clip_on=False)
+    ax.text(low_middle/2 + high_middle, -0.01 + thickness / 2, '$I$', color=color[1], fontsize='large', verticalalignment='center',
+            horizontalalignment='center')
+    ax.add_artist(pt)
+
+    if connectivity in ('i_to_e', 'e_to_e', 'all'):
+        color = cset1
+    else:
+        color = cset2
+    pt = mpl.patches.Rectangle((-0.01, 0),
+                               width=thickness,
+                               height=low_middle,
+                               transform=ax.transAxes,
+                               facecolor=color[0],
+                               edgecolor='k',
+                               clip_path=None,
+                               clip_on=False)
+    ax.text(-0.01 + thickness / 2, low_middle/2, '$E$', color=color[1], fontsize='large', verticalalignment='center',
+            horizontalalignment='center')
+    ax.add_artist(pt)
+
+    if connectivity in ('i_to_i', 'e_to_i', 'all'):
+        color = cset1
+    else:
+        color = cset2
+    pt = mpl.patches.Rectangle((-0.01, high_middle),
+                               width=thickness,
+                               height=low_middle,
+                               transform=ax.transAxes,
+                               facecolor=color[0],
+                               edgecolor='k',
+                               clip_path=None,
+                               clip_on=False)
+    ax.text(-0.01 + thickness / 2, low_middle/2 + high_middle,  '$I$', color=color[1], fontsize='large', verticalalignment='center',
+            horizontalalignment='center')
+    ax.add_artist(pt)
+    return match_count
 
 def multipage(filename=None, figs=None, dpi=200, fmt='pdf'):
     if filename is None:
@@ -139,8 +301,8 @@ def multipage(filename=None, figs=None, dpi=200, fmt='pdf'):
 def plot_traces(t, v, ax):
     max_delta = np.max(v.flatten()) - np.min(v.flatten())
     x = t.T
-    space_idx = np.arange(0, len(v))
-    space_idx[space_idx >= (len(v) / 2)] += 2
+    space_idx = np.arange(0, len(v)).astype(float)
+    space_idx[space_idx >= (len(v) / 2)] += 1.5
     delta_factor = 1.2
     y = (v + (max_delta * delta_factor) * np.reshape(space_idx, (-1, 1))).T
     p = ax.plot(x / ms, y / mV, 'k-')
